@@ -61,20 +61,20 @@ router.post('/AddDataUsuario', async (req, res) => {
 
   try {
     // Obtén los datos del cuerpo de la solicitud POST
-    const { id, nombre, apellido, correo, clave, foto, telefono } = req.body;
+    const { nombre, apellido, correo, clave, foto, telefono } = req.body;
 
     // Crear una nueva conexión a SQL Server
     const pool = await sql.connect(configAzure);
 
     // Consulta SQL para insertar datos en la tabla
     const query = `
-      INSERT INTO usuario (id_usuario, nombre_usuario, apellido_usuario, correo_usuario, clave_usuario, foto_usuario, telefono_usuario)
-      VALUES (@id, @nombre, @apellido, @correo, @clave, @foto, @telefono)
+      INSERT INTO usuario (nombre_usuario, apellido_usuario, correo_usuario, clave_usuario, foto_usuario, telefono_usuario)
+      VALUES (@nombre, @apellido, @correo, @clave, @foto, @telefono)
     `;
 
     // Crear una solicitud de consulta
     const request = pool.request();
-    request.input('id', sql.Numeric(18), id);
+  
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('apellido', sql.VarChar(50), apellido);
     request.input('correo', sql.VarChar(50), correo);
@@ -1147,6 +1147,6 @@ router.get('/insertDataTest', (req, res) => {
 
 // Iniciar el servidor en un puerto específico
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT,'0.0.0.0', () => {
   console.log(`Servidor en ejecución en el puerto ${PORT}`);
 });
