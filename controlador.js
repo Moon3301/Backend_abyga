@@ -192,6 +192,30 @@ router.get('/GetDataUsuario', async (req, res) => {
   
   });
 
+router.put('/ChangeDataUsuario'), async (req, res) => {
+
+
+
+
+
+
+
+
+}
+
+router.delete('/DeleteDataUsuario'), async (req, res) => {
+
+
+
+
+
+
+
+  
+}
+
+
+
 
 // Ruta Transaccion
 
@@ -1144,6 +1168,7 @@ router.get('/insertDataTest', (req, res) => {
     insertData();
 
 });
+
 
 // Iniciar el servidor en un puerto específico
 const PORT = process.env.PORT || 3000;
