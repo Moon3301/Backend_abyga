@@ -5,6 +5,10 @@ const cors = require('cors');
 const sql = require('mssql');
 const app = express();
 
+const WebpayPlus = require('transbank-sdk').WebpayPlus; // ES5
+
+// Es necesario ejecutar dentro de una función async para utilizar await
+
 // Config conexion Azure 
 const odbc = require('odbc');
 
@@ -14,7 +18,6 @@ app.use(cors());
 
 const router = express.Router();
 app.use(router); // usar variable router
-
 
 // config conexion sql server (local Database)
 const config = {
@@ -55,6 +58,31 @@ const connectionString = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:data
 // Ruta Usuario
 
 //Insertar datos
+
+router.post('/PagarWebPay', async (req, res) => {
+  try {
+    // Recupera los datos necesarios del cuerpo de la solicitud
+    const { buyOrder, sessionId, amount, returnUrl } = req.body;
+
+    // Crea una nueva transacción de Webpay Plus
+    const createResponse = await (new WebpayPlus.Transaction()).create(
+      buyOrder, 
+      sessionId, 
+      amount, 
+      returnUrl
+    );
+
+    res.status(200).json({
+      token: createResponse.token,
+      url: createResponse.url
+    });
+  } catch (error) {
+    console.error('Error al procesar la transacción de Webpay:', error);
+    // Maneja el error apropiadamente, por ejemplo, enviando una respuesta de error al cliente.
+    res.status(500).json({ error: 'Error al procesar la transacción de Webpay' });
+  }
+});
+
 router.post('/AddDataUsuario', async (req, res) => {
 
   // Azure 
@@ -94,42 +122,6 @@ router.post('/AddDataUsuario', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 
-
-  // Local Database
-  /*
-    try {
-      // Obtener datos del cuerpo de la solicitud
-      const { id, nombre, apellido, correo, clave, foto, telefono } = req.body;
-  
-      // Crear una nueva conexión a SQL Server
-      const pool = new sql.ConnectionPool(config);
-      await pool.connect();
-  
-      // Consulta SQL para insertar datos en la tabla (reemplaza con tus columnas y nombres de tabla)
-      const query = `INSERT INTO usuario (id_usuario, nombre_usuario, apellido_usuario, correo_usuario, clave_usuario, foto_usuario, telefono_usuario) VALUES (@id, @nombre, @apellido, @correo, @clave, @foto, @telefono)`;
-      
-      // Crear una solicitud de consulta
-      const request = new sql.Request(pool);
-      request.input('id', sql.Numeric(18), id);
-      request.input('nombre', sql.VarChar(50), nombre);
-      request.input('apellido', sql.VarChar(50), apellido);
-      request.input('correo', sql.VarChar(50), correo);
-      request.input('clave', sql.VarChar(50), clave);
-      request.input('foto', sql.VarChar(50), foto);
-      request.input('telefono', sql.VarChar(50), telefono);
-  
-      // Ejecutar la consulta
-      await request.query(query);
-  
-      // Cerrar la conexión
-      await pool.close();
-  
-      res.status(200).json({ message: 'Datos agregados con éxito' });
-    } catch (error) {
-      console.error('Error al agregar datos a la base de datos', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-    */
 });
 
 // Obtener datos
