@@ -7,11 +7,6 @@ const app = express();
 
 const WebpayPlus = require('transbank-sdk').WebpayPlus; // ES5
 
-// Es necesario ejecutar dentro de una función async para utilizar await
-
-// Config conexion Azure 
-const odbc = require('odbc');
-
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
@@ -24,7 +19,7 @@ const config = {
     server: 'DESKTOP-UA2KK29', // Puede ser una dirección IP o un nombre de host
     database: 'database_abyga',
     options: {
-      encrypt: true, // Si estás utilizando una conexión segura (por ejemplo, en Azure), establece esto en true
+      encrypt: true, // Si es una conexión segura, establecer en true
       trustServerCertificate: true, // Permite certificados autofirmados
     
     },
@@ -36,24 +31,6 @@ const config = {
       },
     },
 };
-
-// config conexion azure (Cloud Database)
-
-const configAzure = {
-  server: 'database-sql.database.windows.net',
-  database: 'database_SQLSERVER',
-  user: 'admin-abyga',
-  password: 'Paildramon12',
-  options: {
-    encrypt: true, // Habilita la encriptación
-    trustServerCertificate: false // No confíes en el certificado del servidor (puedes cambiar esto según tus necesidades de seguridad)
-  }
-};
-
-// Configuracion cadena de conexión ODBC
-
-const connectionString = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:database-sql.database.windows.net,1433;Database=database_SQLSERVER;Uid=admin-abyga;Pwd={Paildramon12};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
-
 
 // Ruta Usuario
 
@@ -106,7 +83,7 @@ router.post('/ConfirmarWebPay', async (req, res) => {
     } catch (error) {
 
     console.error('Error al confirmar la transacción de Webpay:', error);
-    // Maneja el error apropiadamente, por ejemplo, enviando una respuesta de error al cliente.
+   
     res.status(500).json({ error: 'Error al confirmar la transacción de Webpay' });
   }
 
@@ -118,24 +95,24 @@ router.post('/AddDataUsuario', async (req, res) => {
 
   try {
     // Obtener datos del cuerpo de la solicitud
-    const { id, nombre, apellido, correo, clave, foto, telefono } = req.body;
+    const {nombreUsuario, correo, clave, telefono, estado, idNegocio } = req.body;
 
-    // Crear una nueva conexión a SQL Server
+    // Crear una nueva conexión a SQL Server 
     const pool = new sql.ConnectionPool(config);
     await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla (reemplaza con tus columnas y nombres de tabla)
-    const query = `INSERT INTO usuario (id_usuario, nombre_usuario, apellido_usuario, correo_usuario, clave_usuario, foto_usuario, telefono_usuario) VALUES (@id, @nombre, @apellido, @correo, @clave, @foto, @telefono)`;
+    const query = `INSERT INTO Usuario (nombre_usuario, correo_usuario, clave_usuario, telefono_usuario, estado_usuario, id_negocio) VALUES (@nombreUsuario, @correo, @clave, @telefono, @estado, @idNegocio )`;
     
     // Crear una solicitud de consulta
     const request = new sql.Request(pool);
-    request.input('id', sql.Numeric(18), id);
-    request.input('nombre', sql.VarChar(50), nombre);
-    request.input('apellido', sql.VarChar(50), apellido);
+    //request.input('id', sql.Numeric(18), id);
+    request.input('nombreUsuario', sql.VarChar(50), nombreUsuario);
     request.input('correo', sql.VarChar(50), correo);
     request.input('clave', sql.VarChar(50), clave);
-    request.input('foto', sql.VarChar(50), foto);
     request.input('telefono', sql.VarChar(50), telefono);
+    request.input('estado', sql.VarChar(50), estado);
+    request.input('idNegocio', sql.Int(18), idNegocio);
 
     // Ejecutar la consulta
     await request.query(query);
@@ -148,50 +125,13 @@ router.post('/AddDataUsuario', async (req, res) => {
     console.error('Error al agregar datos a la base de datos', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-
-
-  // Azure 
-  /*
-  try {
-    // Obtén los datos del cuerpo de la solicitud POST
-    const { nombre, apellido, correo, clave, foto, telefono } = req.body;
-
-    // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
-
-    // Consulta SQL para insertar datos en la tabla
-    const query = `
-      INSERT INTO Usuario (nombre_usuario, apellido_usuario, correo_usuario, clave_usuario, foto_usuario, telefono_usuario)
-      VALUES (@nombre, @apellido, @correo, @clave, @foto, @telefono)
-    `;
-
-    // Crear una solicitud de consulta
-    const request = pool.request();
-  
-    request.input('nombre', sql.VarChar(50), nombre);
-    request.input('apellido', sql.VarChar(50), apellido);
-    request.input('correo', sql.VarChar(50), correo);
-    request.input('clave', sql.VarChar(50), clave);
-    request.input('foto', sql.VarChar(50), foto);
-    request.input('telefono', sql.VarChar(50), telefono);
-
-    // Ejecutar la consulta
-    await request.query(query);
-
-    // Cerrar la conexión
-    await pool.close();
-
-    res.status(200).json({ message: 'Datos agregados con éxito' });
-  } catch (error) {
-    console.error('Error al agregar datos a la base de datos', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-  */
 
 });
 
 // Obtener datos de un usuario
 router.get('/ObtenerUsuario/:id', async (req, res) => {
+
+  const { id } = req.params;
 
   //Local
 
@@ -201,42 +141,15 @@ router.get('/ObtenerUsuario/:id', async (req, res) => {
     await pool.connect();
 
     // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
-    const query = `SELECT * from usuario`;
-
-    // Crear una solicitud de consulta
-    const request = new sql.Request(pool);
-
-    // Ejecutar la consulta
-    const result = await request.query(query);
-
-    // Cerrar la conexión
-    await pool.close();
-
-    // Devolver los datos obtenidos como respuesta JSON
-    res.status(200).json(result.recordset);
-  } catch (error) {
-    console.error('Error al obtener datos de usuario', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-
-
-  // Azure
-  /*
-  try {
-    const { id } = req.params; // Obtén el ID del usuario desde los parámetros de la URL
-
-    // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
-
-    // Consulta SQL para obtener un usuario por su ID
     const query = `
       SELECT * FROM Usuario
       WHERE id_usuario = @id
     `;
 
-    const request = pool.request();
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
     request.input('id', sql.Numeric(18), id);
-
+    
     // Ejecutar la consulta
     const result = await request.query(query);
 
@@ -251,11 +164,13 @@ router.get('/ObtenerUsuario/:id', async (req, res) => {
 
     // Cerrar la conexión
     await pool.close();
+
+    // Devolver los datos obtenidos como respuesta JSON
+    
   } catch (error) {
-    console.error('Error al obtener el usuario de la base de datos', error);
+    console.error('Error al obtener datos de usuario', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-  */
 
 });
 
@@ -283,64 +198,41 @@ router.get('/GetDataUsuarios', async (req, res) => {
 
     // Devolver los datos obtenidos como respuesta JSON
     res.status(200).json(result.recordset);
+
   } catch (error) {
     console.error('Error al obtener datos de usuario', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 
-  // AZURE
-  /*
-    odbc.connect(connectionString, (err, connection) => {
-      if (err) {
-        console.error('Error al conectar a la base de datos:', err);
-        return;
-      }
-    
-      // Ejemplo: Ejecutar una consulta SQL
-      connection.query('SELECT * FROM Usuario', (err, result) => {
-        if (err) {
-          console.error('Error al ejecutar la consulta:', err);
-        } else {
-          console.log('Resultado de la consulta:', result);
-          res.status(200).json(result)
-        }
-    
-        // Cierra la conexión
-        connection.close((err) => {
-          if (err) {
-            console.error('Error al cerrar la conexión:', err);
-            res.status(500).json({ error: 'Error interno del servidor' });
-          }
-        });
-      });
-    });
-  */
   });
 
   // Actualizar data usuario
   router.put('/ActualizarDataUsuario/:id', async (req, res) => {
 
     try {
-      const { nombre, apellido, correo, clave, foto, telefono } = req.body;
+      const { nombreUsuario, correo, clave, telefono, estado, idNegocio } = req.body;
       const { id } = req.params; // Obtén el ID del usuario a actualizar desde los parámetros de la URL
   
-      const pool = await sql.connect(configAzure);
+      const pool = new sql.ConnectionPool(config);
+      await pool.connect();
       
       const query = `
         UPDATE Usuario
-        SET nombre_usuario = @nombre, apellido_usuario = @apellido, correo_usuario = @correo, clave_usuario = @clave, foto_usuario = @foto, telefono_usuario = @telefono
+        SET nombre_usuario = @nombreUsuario, correo_usuario = @correo, clave_usuario = @clave, telefono_usuario = @telefono, estado_usuario = @estado, id_negocio = @idNegocio
         WHERE id_usuario = @id
       `;
   
-      const request = pool.request();
-    
-      request.input('nombre', sql.VarChar(50), nombre);
-      request.input('apellido', sql.VarChar(50), apellido);
+      // Crear una solicitud de consulta
+      const request = new sql.Request(pool);
+      
+      request.input('id', sql.Int, id);
+
+      request.input('nombreUsuario', sql.VarChar(50), nombreUsuario);
       request.input('correo', sql.VarChar(50), correo);
       request.input('clave', sql.VarChar(50), clave);
-      request.input('foto', sql.VarChar(50), foto);
       request.input('telefono', sql.VarChar(50), telefono);
-      request.input('id', sql.Int, id);
+      request.input('estado', sql.VarChar(50), estado);
+      request.input('idNegocio', sql.Int, idNegocio);
   
       await request.query(query);
       await pool.close();
@@ -357,14 +249,15 @@ router.delete('/EliminarDataUsuario/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID del usuario a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
     
     const query = `
       DELETE FROM Usuario
       WHERE id_usuario = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
   
     request.input('id', sql.Int, id);
 
@@ -378,7 +271,6 @@ router.delete('/EliminarDataUsuario/:id', async (req, res) => {
   }
 });
 
-
 // Ruta Transaccion
 
 //Insertar datos
@@ -388,68 +280,28 @@ router.post('/AddDataTransaccion', async (req, res) => {
 
   try {
     // Obtener datos del cuerpo de la solicitud
-    const { campo1, campo2, campo3, campo4, campo5, campo6, campo7, campo8, campo9, campo10 } = req.body;
+    const { nombre, monto, recordatorio, notas, fecha, tipoTransaccion, tipoPago, idCategoria, idUsuario, tipoMovimiento } = req.body;
 
     // Crear una nueva conexión a SQL Server
     const pool = new sql.ConnectionPool(config);
     await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla (reemplaza con tus columnas y nombres de tabla)
-    const query = `INSERT INTO Transaccion (id_transaccion, nombre_transaccion, monto_transaccion, estado_transaccion, notas_transaccion, fecha_transaccion, tipo_transaccion, id_tipo_pago, id_categoria, id_usuario) VALUES (@campo1, @campo2, @campo3, @campo4, @campo5, @campo6, @campo7, @campo8, @campo9, @campo10)`;
+    const query = `INSERT INTO Transaccion (nombre_transaccion, monto_transaccion, recordatorio_transaccion, notas_transaccion, fecha_transaccion, tipo_transaccion, tipo_pago, id_categoria, id_usuario, tipo_movimiento) VALUES (@nombre, @monto, @recordatorio, @notas, @fecha, @tipoTransaccion, @tipoPago, @idCategoria, @idUsuario, @tipoMovimiento)`;
     
     // Crear una solicitud de consulta
     const request = new sql.Request(pool);
 
-    request.input('campo1', sql.Numeric(18), campo1);
-    request.input('campo2', sql.VarChar(50), campo2);
-    request.input('campo3', sql.Numeric(18), campo3);
-    request.input('campo4', sql.VarChar(50), campo4);
-    request.input('campo5', sql.VarChar(50), campo5);
-    request.input('campo6', sql.VarChar(50), campo6);
-    request.input('campo7', sql.VarChar(50), campo7);
-    request.input('campo8', sql.Numeric(18), campo8);
-    request.input('campo9', sql.Numeric(18), campo9);
-    request.input('campo10', sql.Numeric(18), campo10);
-
-    // Ejecutar la consulta
-    await request.query(query);
-
-    // Cerrar la conexión
-    await pool.close();
-
-    res.status(200).json({ message: 'Datos agregados con éxito' });
-  } catch (error) {
-    console.error('Error al agregar datos a la base de datos', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-
-  // Azure
-  /*
-  try {
-    // Obtén los datos del cuerpo de la solicitud POST
-    const {nombre, monto, estado, notas, fecha, tipo, tipo_pago, id_categoria, id_usuario } = req.body;
-
-    // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
-
-    // Consulta SQL para insertar datos en la tabla
-    const query = `
-      INSERT INTO Transaccion (nombre_transaccion, monto_transaccion, estado_transaccion, notas_transaccion, fecha_transaccion, tipo_transaccion, id_tipo_pago, id_categoria, id_usuario)
-      VALUES (@nombre, @monto, @estado, @notas, @fecha, @tipo, @tipo_pago, @id_categoria, @id_usuario)
-    `;
-
-    // Crear una solicitud de consulta
-    const request = pool.request();
-    
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('monto', sql.Numeric(18), monto);
-    request.input('estado', sql.VarChar(50), estado);
+    request.input('recordatorio', sql.VarChar(50), recordatorio);
     request.input('notas', sql.VarChar(50), notas);
     request.input('fecha', sql.VarChar(50), fecha);
-    request.input('tipo', sql.VarChar(50), tipo);
-    request.input('tipo_pago', sql.VarChar(50), tipo_pago);
-    request.input('id_categoria', sql.Numeric(18), id_categoria);
-    request.input('id_usuario', sql.Numeric(18), id_usuario);
+    request.input('tipoTransaccion', sql.VarChar(50), tipoTransaccion);
+    request.input('tipoPago', sql.VarChar(50), tipoPago);
+    request.input('idCategoria', sql.Numeric(18), idCategoria);
+    request.input('idUsuario', sql.Numeric(18), idUsuario);
+    request.input('tipoMovimiento', sql.VarChar(50), tipoMovimiento);
 
     // Ejecutar la consulta
     await request.query(query);
@@ -462,7 +314,6 @@ router.post('/AddDataTransaccion', async (req, res) => {
     console.error('Error al agregar datos a la base de datos', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-  */
 
 });
 
@@ -477,7 +328,7 @@ router.get('/GetDataTransacciones', async (req, res) => {
     await pool.connect();
 
     // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
-    const query = `SELECT * from transaccion`;
+    const query = `SELECT * from Transaccion`;
 
     // Crear una solicitud de consulta
     const request = new sql.Request(pool);
@@ -495,33 +346,6 @@ router.get('/GetDataTransacciones', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 
-  // AZURE
-  /*
-  odbc.connect(connectionString, (err, connection) => {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return;
-    }
-  
-    // Ejemplo: Ejecutar una consulta SQL
-    connection.query('SELECT * FROM Transaccion', (err, result) => {
-      if (err) {
-        console.error('Error al ejecutar la consulta:', err);
-      } else {
-        console.log('Resultado de la consulta:', result);
-        res.status(200).json(result)
-      }
-  
-      // Cierra la conexión
-      connection.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión:', err);
-          res.status(500).json({ error: 'Error interno del servidor' });
-        }
-      });
-    });
-  });
-  */
 });
 
 // Obtener datos de 1 transaccion
@@ -531,7 +355,8 @@ router.get('/ObtenerTransaccion/:id', async (req, res) => {
     const { id } = req.params; // Obtén el ID de la transacción desde los parámetros de la URL
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para obtener una transacción por su ID
     const query = `
@@ -539,7 +364,8 @@ router.get('/ObtenerTransaccion/:id', async (req, res) => {
       WHERE id_transaccion = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     // Ejecutar la consulta
@@ -556,6 +382,7 @@ router.get('/ObtenerTransaccion/:id', async (req, res) => {
 
     // Cerrar la conexión
     await pool.close();
+
   } catch (error) {
     console.error('Error al obtener la transacción de la base de datos', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -566,29 +393,34 @@ router.get('/ObtenerTransaccion/:id', async (req, res) => {
 
 router.put('/ActualizarDataTransaccion/:id', async (req, res) => {
   try {
-    const { nombre, monto, estado, notas, fecha, tipo, tipo_pago, id_categoria, id_usuario } = req.body;
+    const { nombre, monto, recordatorio, notas, fecha, tipoTransaccion, tipoPago, idCategoria, idUsuario, tipoMovimiento } = req.body;
     const { id } = req.params; // Obtén el ID de la transacción a actualizar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       UPDATE Transaccion
-      SET nombre_transaccion = @nombre, monto_transaccion = @monto, estado_transaccion = @estado, notas_transaccion = @notas, fecha_transaccion = @fecha, tipo_transaccion = @tipo, id_tipo_pago = @tipo_pago, id_categoria = @id_categoria, id_usuario = @id_usuario
+      SET nombre_transaccion = @nombre, monto_transaccion = @monto, recordatorio_transaccion = @recordatorio, notas_transaccion = @notas, fecha_transaccion = @fecha, tipo_transaccion = @tipoTransaccion, tipo_pago = @tipoPago, id_categoria = @idCategoria, id_usuario = @idUsuario, tipo_movimiento = @tipoMovimiento
       WHERE id_transaccion = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
+    request.input('id', sql.Int, id);
 
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('monto', sql.Numeric(18), monto);
-    request.input('estado', sql.VarChar(50), estado);
+    request.input('recordatorio', sql.VarChar(50), recordatorio);
     request.input('notas', sql.VarChar(50), notas);
     request.input('fecha', sql.VarChar(50), fecha);
-    request.input('tipo', sql.VarChar(50), tipo);
-    request.input('tipo_pago', sql.VarChar(50), tipo_pago);
-    request.input('id_categoria', sql.Numeric(18), id_categoria);
-    request.input('id_usuario', sql.Numeric(18), id_usuario);
-    request.input('id', sql.Int, id);
+    request.input('tipoTransaccion', sql.VarChar(50), tipoTransaccion);
+    request.input('tipoPago', sql.VarChar(50), tipoPago);
+    request.input('idCategoria', sql.Numeric(18), idCategoria);
+    request.input('idUsuario', sql.Numeric(18), idUsuario);
+    request.input('tipoMovimiento', sql.VarChar(50), tipoMovimiento);
+    
 
     await request.query(query);
     await pool.close();
@@ -605,14 +437,15 @@ router.delete('/EliminarDataTransaccion/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID de la transacción a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       DELETE FROM Transaccion
       WHERE id_transaccion = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
     request.input('id', sql.Int, id);
 
@@ -620,6 +453,7 @@ router.delete('/EliminarDataTransaccion/:id', async (req, res) => {
     await pool.close();
 
     res.status(200).json({ message: 'Datos de transacción eliminados con éxito' });
+
   } catch (error) {
     console.error('Error al eliminar datos de transacción de la base de datos', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -635,22 +469,22 @@ router.post('/AddDataCategoriaTransaccion', async (req, res) => {
 
   try {
     // Obtén los datos del cuerpo de la solicitud POST
-    const {nombre, id_subCategoria} = req.body;
+    const {nombre, idSubCategoria} = req.body;
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla
     const query = `
       INSERT INTO Categoria_transaccion (nombre_categoria, id_subCategoria)
-      VALUES (@nombre, @id_subCategoria)
+      VALUES (@nombre, @idSubCategoria)
     `;
 
-    // Crear una solicitud de consulta
-    const request = pool.request();
+    const request = new sql.Request(pool);
     
     request.input('nombre', sql.VarChar(50), nombre);
-    request.input('id_subCategoria', sql.Numeric(18), id_subCategoria);
+    request.input('idSubCategoria', sql.Numeric(18), idSubCategoria);
 
     // Ejecutar la consulta
     await request.query(query);
@@ -673,7 +507,8 @@ router.get('/ObtenerCategoriaTransaccion/:id', async (req, res) => {
     const { id } = req.params; // Obtén el ID de la categoría de transacción desde los parámetros de la URL
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para obtener una categoría de transacción por su ID
     const query = `
@@ -681,7 +516,8 @@ router.get('/ObtenerCategoriaTransaccion/:id', async (req, res) => {
       WHERE id_categoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     // Ejecutar la consulta
@@ -707,6 +543,7 @@ router.get('/ObtenerCategoriaTransaccion/:id', async (req, res) => {
 // Obtener datos de todas las categorias de transacciones
 router.get('/GetDataCategoriaTransaccion', async (req, res) => {
     try {
+
       // Crear una nueva conexión a SQL Server
       const pool = new sql.ConnectionPool(config);
       await pool.connect();
@@ -729,7 +566,7 @@ router.get('/GetDataCategoriaTransaccion', async (req, res) => {
       console.error('Error al obtener datos de usuario', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
-  });
+});
 
 // Actualizar Data Categoria Transaccion
 router.put('/ActualizarDataCategoriaTransaccion/:id', async (req, res) => {
@@ -737,7 +574,8 @@ router.put('/ActualizarDataCategoriaTransaccion/:id', async (req, res) => {
     const { nombre, id_subCategoria } = req.body;
     const { id } = req.params; // Obtén el ID de la categoría de transacción a actualizar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       UPDATE Categoria_transaccion
@@ -745,12 +583,13 @@ router.put('/ActualizarDataCategoriaTransaccion/:id', async (req, res) => {
       WHERE id_categoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
+    request.input('id', sql.Int, id);
 
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('id_subCategoria', sql.Numeric(18), id_subCategoria);
-    request.input('id', sql.Int, id);
-
+    
     await request.query(query);
     await pool.close();
 
@@ -766,14 +605,15 @@ router.delete('/EliminarDataCategoriaTransaccion/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID de la categoría de transacción a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       DELETE FROM Categoria_transaccion
       WHERE id_categoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
     request.input('id', sql.Int, id);
 
@@ -792,14 +632,13 @@ router.delete('/EliminarDataCategoriaTransaccion/:id', async (req, res) => {
 //Insertar datos
 router.post('/AddDataSubCategoriaTransaccion', async (req, res) => {
 
-  // Azure
-
   try {
     // Obtén los datos del cuerpo de la solicitud POST
     const {nombre, icon} = req.body;
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla
     const query = `
@@ -808,7 +647,7 @@ router.post('/AddDataSubCategoriaTransaccion', async (req, res) => {
     `;
 
     // Crear una solicitud de consulta
-    const request = pool.request();
+    const request = new sql.Request(pool);
    
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('icon', sql.VarChar(50), icon);
@@ -834,7 +673,8 @@ router.get('/ObtenerSubCategoriaTransaccion/:id', async (req, res) => {
     const { id } = req.params; // Obtén el ID de la subcategoría de transacción desde los parámetros de la URL
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para obtener una subcategoría de transacción por su ID
     const query = `
@@ -842,7 +682,8 @@ router.get('/ObtenerSubCategoriaTransaccion/:id', async (req, res) => {
       WHERE id_subCategoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     // Ejecutar la consulta
@@ -869,34 +710,30 @@ router.get('/ObtenerSubCategoriaTransaccion/:id', async (req, res) => {
 // Obtener todos los datos de SubCategoria Transaccion
 router.get('/GetDataSubCategoriaTransaccion', async (req, res) => {
 
+  try {
 
-  //Azure
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
-  odbc.connect(connectionString, (err, connection) => {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return;
-    }
-  
-    // Ejemplo: Ejecutar una consulta SQL
-    connection.query('SELECT * FROM SubCategoria_transaccion', (err, result) => {
-      if (err) {
-        console.error('Error al ejecutar la consulta:', err);
-      } else {
-        console.log('Resultado de la consulta:', result);
-        res.status(200).json(result)
-      }
-  
-      // Cierra la conexión
-      connection.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión:', err);
-          res.status(500).json({ error: 'Error interno del servidor' });
-        }
-      });
-    });
-  });
+    // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
+    const query = `SELECT * from subCategoria_transaccion`;
 
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    // Ejecutar la consulta
+    const result = await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    // Devolver los datos obtenidos como respuesta JSON
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error al obtener datos de la subCategoria', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // Actualizar data Subcategoria Transaccion
@@ -905,7 +742,8 @@ router.put('/ActualizarDataSubCategoriaTransaccion/:id', async (req, res) => {
     const { nombre, icon } = req.body;
     const { id } = req.params; // Obtén el ID de la subcategoría de transacción a actualizar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       UPDATE SubCategoria_transaccion
@@ -913,7 +751,7 @@ router.put('/ActualizarDataSubCategoriaTransaccion/:id', async (req, res) => {
       WHERE id_subCategoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('icon', sql.VarChar(50), icon);
@@ -935,14 +773,15 @@ router.delete('/EliminarDataSubCategoriaTransaccion/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID de la subcategoría de transacción a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       DELETE FROM SubCategoria_transaccion
       WHERE id_subCategoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
     request.input('id', sql.Int, id);
 
@@ -956,194 +795,30 @@ router.delete('/EliminarDataSubCategoriaTransaccion/:id', async (req, res) => {
   }
 });
 
-  // Ruta Tipo Pago Transaccion *****************
-
-//Insertar datos
-router.post('/AddDataTipoPagoTransaccion', async (req, res) => {
-
-  // Azure
-
-  try {
-    // Obtén los datos del cuerpo de la solicitud POST
-    const {nombre} = req.body;
-
-    // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
-
-    // Consulta SQL para insertar datos en la tabla
-    const query = `
-      INSERT INTO TipoPago_transaccion (nombre_tipo_pago)
-      VALUES (@nombre)
-    `;
-
-    // Crear una solicitud de consulta
-    const request = pool.request();
-    
-    request.input('nombre', sql.VarChar(50), nombre);
-
-    // Ejecutar la consulta
-    await request.query(query);
-
-    // Cerrar la conexión
-    await pool.close();
-
-    res.status(200).json({ message: 'Datos agregados con éxito' });
-  } catch (error) {
-    console.error('Error al agregar datos a la base de datos', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-
-});
-
-// Obtener 1 dato de tipo pago
-router.get('/ObtenerTipoPagoTransaccion/:id', async (req, res) => {
-  try {
-    const { id } = req.params; // Obtén el ID del tipo de pago de transacción desde los parámetros de la URL
-
-    // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
-
-    // Consulta SQL para obtener un tipo de pago de transacción por su ID
-    const query = `
-      SELECT * FROM TipoPago_transaccion
-      WHERE id_tipo_pago = @id
-    `;
-
-    const request = pool.request();
-    request.input('id', sql.Numeric(18), id);
-
-    // Ejecutar la consulta
-    const result = await request.query(query);
-
-    if (result.recordset.length > 0) {
-      // Si se encuentra un tipo de pago de transacción con el ID proporcionado, devuelve ese tipo de pago
-      const tipoPagoTransaccion = result.recordset[0];
-      res.status(200).json(tipoPagoTransaccion);
-    } else {
-      // Si no se encuentra un tipo de pago de transacción con el ID proporcionado, devuelve un mensaje de error
-      res.status(404).json({ message: 'Tipo de pago de transacción no encontrado' });
-    }
-
-    // Cerrar la conexión
-    await pool.close();
-  } catch (error) {
-    console.error('Error al obtener el tipo de pago de transacción de la base de datos', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Obtener todos los datos tipo pago
-router.get('/GetDataTipoPagoTransaccion', async (req, res) => {
-
-  // Azure
-
-  odbc.connect(connectionString, (err, connection) => {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return;
-    }
-  
-    // Ejemplo: Ejecutar una consulta SQL
-    connection.query('SELECT * FROM TipoPago_transaccion', (err, result) => {
-      if (err) {
-        console.error('Error al ejecutar la consulta:', err);
-      } else {
-        console.log('Resultado de la consulta:', result);
-        res.status(200).json(result)
-      }
-  
-      // Cierra la conexión
-      connection.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión:', err);
-          res.status(500).json({ error: 'Error interno del servidor' });
-        }
-      });
-    });
-  });
-
-});
-
-// Actualizar data tipo pago transaccion
-router.put('/ActualizarDataTipoPagoTransaccion/:id', async (req, res) => {
-  try {
-    const { nombre } = req.body;
-    const { id } = req.params; // Obtén el ID del tipo de pago de transacción a actualizar desde los parámetros de la URL
-
-    const pool = await sql.connect(configAzure);
-
-    const query = `
-      UPDATE TipoPago_transaccion
-      SET nombre_tipo_pago = @nombre
-      WHERE id_tipo_pago = @id
-    `;
-
-    const request = pool.request();
-
-    request.input('nombre', sql.VarChar(50), nombre);
-    request.input('id', sql.Int, id);
-
-    await request.query(query);
-    await pool.close();
-
-    res.status(200).json({ message: 'Datos de tipo de pago de transacción actualizados con éxito' });
-  } catch (error) {
-    console.error('Error al actualizar datos de tipo de pago de transacción en la base de datos', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Eliminar data tipo pago transaccion
-router.delete('/EliminarDataTipoPagoTransaccion/:id', async (req, res) => {
-  try {
-    const { id } = req.params; // Obtén el ID del tipo de pago de transacción a eliminar desde los parámetros de la URL
-
-    const pool = await sql.connect(configAzure);
-
-    const query = `
-      DELETE FROM TipoPago_transaccion
-      WHERE id_tipo_pago = @id
-    `;
-
-    const request = pool.request();
-
-    request.input('id', sql.Int, id);
-
-    await request.query(query);
-    await pool.close();
-
-    res.status(200).json({ message: 'Datos de tipo de pago de transacción eliminados con éxito' });
-  } catch (error) {
-    console.error('Error al eliminar datos de tipo de pago de transacción de la base de datos', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-  // Ruta Negocio
+// Ruta Negocio
 
 //Insertar datos
 router.post('/AddDataNegocio', async (req, res) => {
 
-  // Azure
-
   try {
     // Obtén los datos del cuerpo de la solicitud POST
-    const {nombre, foto, id_usuario} = req.body;
+    const {nombre, direccion, id_usuario} = req.body;
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla
     const query = `
-      INSERT INTO Negocio (nombre_negocio, foto_negocio, id_usuario)
-      VALUES (@nombre, @foto, @id_usuario)
+      INSERT INTO Negocio (nombre_negocio, direccion_negocio, id_usuario)
+      VALUES (@nombre, @direccion, @id_usuario)
     `;
 
     // Crear una solicitud de consulta
-    const request = pool.request();
+    const request = new sql.Request(pool);
     
     request.input('nombre', sql.VarChar(50), nombre);
-    request.input('foto', sql.VarChar(50), foto);
+    request.input('direccion', sql.VarChar(50), direccion);
     request.input('id_usuario', sql.Numeric(18), id_usuario);
 
     // Ejecutar la consulta
@@ -1163,11 +838,13 @@ router.post('/AddDataNegocio', async (req, res) => {
 // Obtener 1 negocio
 
 router.get('/ObtenerNegocio/:id', async (req, res) => {
+
   try {
     const { id } = req.params; // Obtén el ID del negocio desde los parámetros de la URL
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para obtener un negocio por su ID
     const query = `
@@ -1175,7 +852,8 @@ router.get('/ObtenerNegocio/:id', async (req, res) => {
       WHERE id_negocio = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     // Ejecutar la consulta
@@ -1201,56 +879,55 @@ router.get('/ObtenerNegocio/:id', async (req, res) => {
 // Obtener todos los negocios
 router.get('/GetDataNegocio', async (req, res) => {
 
-  // Azure
+  try {
 
-  odbc.connect(connectionString, (err, connection) => {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return;
-    }
-  
-    // Ejemplo: Ejecutar una consulta SQL
-    connection.query('SELECT * FROM Negocio', (err, result) => {
-      if (err) {
-        console.error('Error al ejecutar la consulta:', err);
-      } else {
-        console.log('Resultado de la consulta:', result);
-        res.status(200).json(result)
-      }
-  
-      // Cierra la conexión
-      connection.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión:', err);
-          res.status(500).json({ error: 'Error interno del servidor' });
-        }
-      });
-    });
-  });
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
+    // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
+    const query = `SELECT * from Negocio`;
+
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    // Ejecutar la consulta
+    const result = await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    // Devolver los datos obtenidos como respuesta JSON
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error al obtener datos de la subCategoria', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // Actualizar data negocio
 router.put('/ActualizarDataNegocio/:id', async (req, res) => {
   try {
-    const { nombre, foto, id_usuario } = req.body;
+    const { nombre, direccion, id_usuario } = req.body;
     const { id } = req.params; // Obtén el ID del negocio a actualizar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       UPDATE Negocio
-      SET nombre_negocio = @nombre, foto_negocio = @foto, id_usuario = @id_usuario
+      SET nombre_negocio = @nombre, direccion_negocio = @direccion, id_usuario = @id_usuario
       WHERE id_negocio = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
-    request.input('nombre', sql.VarChar(50), nombre);
-    request.input('foto', sql.VarChar(50), foto);
-    request.input('id_usuario', sql.Numeric(18), id_usuario);
     request.input('id', sql.Int, id);
 
+    request.input('nombre', sql.VarChar(50), nombre);
+    request.input('direccion', sql.VarChar(50), direccion);
+    request.input('id_usuario', sql.Numeric(18), id_usuario);
+    
     await request.query(query);
     await pool.close();
 
@@ -1266,14 +943,15 @@ router.delete('/EliminarDataNegocio/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID del negocio a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       DELETE FROM Negocio
       WHERE id_negocio = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
     request.input('id', sql.Int, id);
 
@@ -1281,6 +959,7 @@ router.delete('/EliminarDataNegocio/:id', async (req, res) => {
     await pool.close();
 
     res.status(200).json({ message: 'Datos de negocio eliminados con éxito' });
+
   } catch (error) {
     console.error('Error al eliminar datos de negocio de la base de datos', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -1292,14 +971,13 @@ router.delete('/EliminarDataNegocio/:id', async (req, res) => {
 //Insertar datos
 router.post('/AddDataProducto', async (req, res) => {
 
-  // Azure
-
   try {
     // Obtén los datos del cuerpo de la solicitud POST
-    const { id, nombre, precio, costo, stock, unidadMedida, fechaCreacion, fechModificacion, img, estado, decripcion, id_categoria, id_negocio} = req.body;
+    const { id, nombre, precio, costo, stock, unidadMedida, fechaCreacion, fechaModificacion, img, estado, descripcion, id_categoria, id_negocio} = req.body;
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla
     const query = `
@@ -1308,7 +986,8 @@ router.post('/AddDataProducto', async (req, res) => {
     `;
 
     // Crear una solicitud de consulta
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('precio', sql.Numeric(50), precio);
@@ -1344,7 +1023,8 @@ router.get('/ObtenerProducto/:id', async (req, res) => {
     const { id } = req.params; // Obtén el ID del producto desde los parámetros de la URL
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para obtener un producto por su ID
     const query = `
@@ -1352,7 +1032,8 @@ router.get('/ObtenerProducto/:id', async (req, res) => {
       WHERE id_producto = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     // Ejecutar la consulta
@@ -1378,33 +1059,30 @@ router.get('/ObtenerProducto/:id', async (req, res) => {
 // Obtener todos los productos
 router.get('/GetDataProducto', async (req, res) => {
 
-  // Azure
+  try {
 
-  odbc.connect(connectionString, (err, connection) => {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return;
-    }
-  
-    // Ejemplo: Ejecutar una consulta SQL
-    connection.query('SELECT * FROM Producto', (err, result) => {
-      if (err) {
-        console.error('Error al ejecutar la consulta:', err);
-      } else {
-        console.log('Resultado de la consulta:', result);
-        res.status(200).json(result)
-      }
-  
-      // Cierra la conexión
-      connection.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión:', err);
-          res.status(500).json({ error: 'Error interno del servidor' });
-        }
-      });
-    });
-  });
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
+    // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
+    const query = `SELECT * from Producto`;
+
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    // Ejecutar la consulta
+    const result = await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    // Devolver los datos obtenidos como respuesta JSON
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error al obtener datos de la subCategoria', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // Actualizar data producto
@@ -1413,7 +1091,8 @@ router.put('/ActualizarDataProducto/:id', async (req, res) => {
     const { id, nombre, precio, costo, stock, unidadMedida, fechaCreacion, fechaModificacion, img, estado, descripcion, id_categoria, id_negocio } = req.body;
     const { id: productoId } = req.params; // Obtén el ID del producto a actualizar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       UPDATE Producto
@@ -1421,7 +1100,8 @@ router.put('/ActualizarDataProducto/:id', async (req, res) => {
       WHERE id_producto = @productoId
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('precio', sql.Numeric(50), precio);
@@ -1452,14 +1132,16 @@ router.delete('/EliminarDataProducto/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID del producto a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       DELETE FROM Producto
       WHERE id_producto = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     await request.query(query);
@@ -1477,14 +1159,13 @@ router.delete('/EliminarDataProducto/:id', async (req, res) => {
 //Insertar datos
 router.post('/AddDataCategoriaProducto', async (req, res) => {
 
-  // Azure
-
   try {
     // Obtén los datos del cuerpo de la solicitud POST
     const {nombre, icon} = req.body;
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para insertar datos en la tabla
     const query = `
@@ -1493,7 +1174,7 @@ router.post('/AddDataCategoriaProducto', async (req, res) => {
     `;
 
     // Crear una solicitud de consulta
-    const request = pool.request();
+    const request = new sql.Request(pool);
    
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('icon', sql.VarChar(50), icon);
@@ -1519,7 +1200,8 @@ router.get('/ObtenerCategoriaProducto/:id', async (req, res) => {
     const { id } = req.params; // Obtén el ID de la categoría de producto desde los parámetros de la URL
 
     // Crear una nueva conexión a SQL Server
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     // Consulta SQL para obtener una categoría de producto por su ID
     const query = `
@@ -1527,7 +1209,8 @@ router.get('/ObtenerCategoriaProducto/:id', async (req, res) => {
       WHERE id_categoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
     request.input('id', sql.Numeric(18), id);
 
     // Ejecutar la consulta
@@ -1553,32 +1236,30 @@ router.get('/ObtenerCategoriaProducto/:id', async (req, res) => {
 // Obtener todas categorias de productos
 router.get('/GetDataCategoriaProducto', async (req, res) => {
 
-  // Azure
+  try {
 
-  odbc.connect(connectionString, (err, connection) => {
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      return;
-    }
-  
-    // Ejemplo: Ejecutar una consulta SQL
-    connection.query('SELECT * FROM Categoria_producto', (err, result) => {
-      if (err) {
-        console.error('Error al ejecutar la consulta:', err);
-      } else {
-        console.log('Resultado de la consulta:', result);
-        res.status(200).json(result)
-      }
-  
-      // Cierra la conexión
-      connection.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión:', err);
-          res.status(500).json({ error: 'Error interno del servidor' });
-        }
-      });
-    });
-  });
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
+    const query = `SELECT * from Categoria_producto`;
+
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    // Ejecutar la consulta
+    const result = await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    // Devolver los datos obtenidos como respuesta JSON
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error al obtener datos de la subCategoria', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 
 });
 
@@ -1588,7 +1269,8 @@ router.put('/ActualizarDataCategoriaProducto/:id', async (req, res) => {
     const { nombre, icon } = req.body;
     const { id } = req.params; // Obtén el ID de la categoría de producto a actualizar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       UPDATE Categoria_producto
@@ -1596,13 +1278,15 @@ router.put('/ActualizarDataCategoriaProducto/:id', async (req, res) => {
       WHERE id_categoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
+
+    request.input('id', sql.Numeric(18), id);
 
     request.input('nombre', sql.VarChar(50), nombre);
     request.input('icon', sql.VarChar(50), icon);
-    request.input('id', sql.Numeric(18), id);
-
+    
     await request.query(query);
+
     await pool.close();
 
     res.status(200).json({ message: 'Datos de categoría de producto actualizados con éxito' });
@@ -1617,14 +1301,15 @@ router.delete('/EliminarDataCategoriaProducto/:id', async (req, res) => {
   try {
     const { id } = req.params; // Obtén el ID de la categoría de producto a eliminar desde los parámetros de la URL
 
-    const pool = await sql.connect(configAzure);
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
 
     const query = `
       DELETE FROM Categoria_producto
       WHERE id_categoria = @id
     `;
 
-    const request = pool.request();
+    const request = new sql.Request(pool);
 
     request.input('id', sql.Numeric(18), id);
 
@@ -1637,6 +1322,232 @@ router.delete('/EliminarDataCategoriaProducto/:id', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
+// Ruta registro de ventas
+
+
+// Agregar venta
+
+router.post('/AddVenta', async (req, res) => {
+
+  try {
+    // Obtén los datos del cuerpo de la solicitud POST
+    const { ticket, totalVenta, fecha, id_negocio} = req.body;
+
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    // Consulta SQL para insertar datos en la tabla
+    const query = `
+      INSERT INTO Ventas (ticket_venta, total_venta, fecha, id_negocio)
+      VALUES (@ticket, @totalVenta, @fecha, @id_negocio)
+    `;
+
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    request.input('ticket', sql.Numeric(18), ticket);
+    request.input('totalVenta', sql.VarChar(50), totalVenta);
+    request.input('fecha', sql.Numeric(50), fecha);
+    request.input('id_negocio', sql.Numeric(18), id_negocio);
+
+    // Ejecutar la consulta
+    await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    res.status(200).json({ message: 'Datos agregados con éxito' });
+  } catch (error) {
+    console.error('Error al agregar datos a la base de datos', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+
+});
+
+// Detalle venta
+
+router.post('/DetalleVenta', async (req, res) => {
+
+  try {
+    // Obtén los datos del cuerpo de la solicitud POST
+    const { id_ticket, id_negocio, cantidad, total, id_usuario} = req.body;
+
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    // Consulta SQL para insertar datos en la tabla
+    const query = `
+      INSERT INTO Detalle_venta (ticket_venta, cantidad_venta,total_detalle_venta, id_usuario)
+      VALUES (@id_ticket, @totalVenta, @totalCantidad, @id_usuario)
+    `;
+
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    request.input('id_ticket', sql.Numeric(18), id_ticket);
+    request.input('id_producto', sql.VarChar(50), id_negocio);
+    request.input('cantidad', sql.VarChar(50), cantidad);
+    request.input('total',sql.Numeric(18),)
+    request.input('fecha', sql.Numeric(50), fecha);
+
+    // Ejecutar la consulta
+    await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    res.status(200).json({ message: 'Datos agregados con éxito' });
+  } catch (error) {
+    console.error('Error al agregar datos a la base de datos', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+
+});
+
+
+
+
+// Obtener 1 producto
+
+router.get('/ObtenerProducto/:id', async (req, res) => {
+  try {
+    const { id } = req.params; // Obtén el ID del producto desde los parámetros de la URL
+
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    // Consulta SQL para obtener un producto por su ID
+    const query = `
+      SELECT * FROM Producto
+      WHERE id_producto = @id
+    `;
+
+    const request = new sql.Request(pool);
+
+    request.input('id', sql.Numeric(18), id);
+
+    // Ejecutar la consulta
+    const result = await request.query(query);
+
+    if (result.recordset.length > 0) {
+      // Si se encuentra un producto con el ID proporcionado, devuelve ese producto
+      const producto = result.recordset[0];
+      res.status(200).json(producto);
+    } else {
+      // Si no se encuentra un producto con el ID proporcionado, devuelve un mensaje de error
+      res.status(404).json({ message: 'Producto no encontrado' });
+    }
+
+    // Cerrar la conexión
+    await pool.close();
+  } catch (error) {
+    console.error('Error al obtener el producto de la base de datos', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Obtener todos los productos
+router.get('/GetDataProducto', async (req, res) => {
+
+  try {
+
+    // Crear una nueva conexión a SQL Server
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    // Consulta SQL para obtener datos de usuario (reemplaza con tus columnas y nombres de tabla)
+    const query = `SELECT * from Producto`;
+
+    // Crear una solicitud de consulta
+    const request = new sql.Request(pool);
+
+    // Ejecutar la consulta
+    const result = await request.query(query);
+
+    // Cerrar la conexión
+    await pool.close();
+
+    // Devolver los datos obtenidos como respuesta JSON
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error al obtener datos de la subCategoria', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar data producto
+router.put('/ActualizarDataProducto/:id', async (req, res) => {
+  try {
+    const { id, nombre, precio, costo, stock, unidadMedida, fechaCreacion, fechaModificacion, img, estado, descripcion, id_categoria, id_negocio } = req.body;
+    const { id: productoId } = req.params; // Obtén el ID del producto a actualizar desde los parámetros de la URL
+
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    const query = `
+      UPDATE Producto
+      SET id_producto = @id, nombre_producto = @nombre, precio_producto = @precio, costo_producto = @costo, stock_producto = @stock, unidadMedida_producto = @unidadMedida, fechaCreacion_producto = @fechaCreacion, fechaModificacion_producto = @fechaModificacion, img_producto = @img, estado_producto = @estado, descripcion_producto = @descripcion, id_categoria_producto = @id_categoria, id_negocio = @id_negocio
+      WHERE id_producto = @productoId
+    `;
+
+    const request = new sql.Request(pool);
+
+    request.input('id', sql.Numeric(18), id);
+    request.input('nombre', sql.VarChar(50), nombre);
+    request.input('precio', sql.Numeric(50), precio);
+    request.input('costo', sql.Numeric(18), costo);
+    request.input('stock', sql.Numeric(18), stock);
+    request.input('unidadMedida', sql.VarChar(50), unidadMedida);
+    request.input('fechaCreacion', sql.VarChar(50), fechaCreacion);
+    request.input('fechaModificacion', sql.VarChar(50), fechaModificacion);
+    request.input('img', sql.VarChar(50), img);
+    request.input('estado', sql.VarChar(50), estado);
+    request.input('descripcion', sql.VarChar(50), descripcion);
+    request.input('id_categoria', sql.Numeric(18), id_categoria);
+    request.input('id_negocio', sql.Numeric(18), id_negocio);
+    request.input('productoId', sql.Numeric(18), productoId);
+
+    await request.query(query);
+    await pool.close();
+
+    res.status(200).json({ message: 'Datos de producto actualizados con éxito' });
+  } catch (error) {
+    console.error('Error al actualizar datos de producto en la base de datos', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar data producto
+router.delete('/EliminarDataProducto/:id', async (req, res) => {
+  try {
+    const { id } = req.params; // Obtén el ID del producto a eliminar desde los parámetros de la URL
+
+    const pool = new sql.ConnectionPool(config);
+    await pool.connect();
+
+    const query = `
+      DELETE FROM Producto
+      WHERE id_producto = @id
+    `;
+
+    const request = new sql.Request(pool);
+
+    request.input('id', sql.Numeric(18), id);
+
+    await request.query(query);
+    await pool.close();
+
+    res.status(200).json({ message: 'Datos de producto eliminados con éxito' });
+  } catch (error) {
+    console.error('Error al eliminar datos de producto de la base de datos', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 
 // Iniciar el servidor en un puerto específico
 const PORT = process.env.PORT || 3000;
